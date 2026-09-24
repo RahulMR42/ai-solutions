@@ -5,23 +5,132 @@ from __future__ import annotations
 import os
 import json
 import time
+import hmac
+import secrets
+import sqlite3
+import string
+import threading
+from datetime import datetime, timezone
 from html import escape
+from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 from services.oci_openai import OciOpenAIConfig, run_prompt
 from services.oci_sandbox import run_hybrid_web_research, run_langgraph_research, run_package_model_artifact, run_single_turn
 
-load_dotenv(override=True)
+# The launcher resolves .env values before Streamlit starts. Do not replace its
+# generated APP_PASSWORD during a Streamlit script rerun.
+load_dotenv()
 
 st.set_page_config(page_title="OCI Sandbox Lab", page_icon="◈", layout="wide")
 
 DEFAULT_COMPARTMENT = "ocid1.compartment.oc1..aaaaaaaa75igkvdlzgwy5kly2cyjysezlkmsw436b3uvjeir4mffyz2k2dyq"
+ACTIVE_SESSION_TTL_SECONDS = 120
+PRESENCE_DB_PATH = Path(
+    os.getenv("PRESENCE_DB_PATH", str(Path(__file__).parent / "deployment-local" / "presence.sqlite3"))
+)
+APP_STARTED_AT_UTC = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+_presence_lock = threading.Lock()
+
+
+def app_credentials() -> tuple[str, str]:
+    """Return the configured login credentials, generating a startup password if needed."""
+    username = os.getenv("APP_USER") or "oci"
+    password = os.getenv("APP_PASSWORD")
+    if not password:
+        alphabet = string.ascii_letters + string.digits
+        password = "".join(secrets.choice(alphabet) for _ in range(16))
+        # Store it in the running process so Streamlit reruns do not rotate it.
+        os.environ["APP_PASSWORD"] = password
+        print(
+            "APP_PASSWORD was not set. Generated startup login password: "
+            f"{password}",
+            flush=True,
+        )
+    return username, password
+
+
+def current_session_id() -> str:
+    """Return Streamlit's server-side session ID, with a safe local fallback."""
+    context = get_script_run_ctx(suppress_warning=True)
+    if context and context.session_id:
+        return context.session_id
+    if "presence_session_id" not in st.session_state:
+        st.session_state.presence_session_id = secrets.token_urlsafe(16)
+    return st.session_state.presence_session_id
+
+
+def record_presence() -> tuple[int, int]:
+    """Persist this session and return active and total visitor counts."""
+    session_id = current_session_id()
+    now = time.time()
+    with _presence_lock:
+        PRESENCE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(PRESENCE_DB_PATH, timeout=5) as connection:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS visitors (session_id TEXT PRIMARY KEY, first_seen REAL NOT NULL)"
+            )
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS active_sessions (session_id TEXT PRIMARY KEY, last_seen REAL NOT NULL)"
+            )
+            connection.execute(
+                "INSERT OR IGNORE INTO visitors (session_id, first_seen) VALUES (?, ?)", (session_id, now)
+            )
+            connection.execute(
+                "INSERT INTO active_sessions (session_id, last_seen) VALUES (?, ?) "
+                "ON CONFLICT(session_id) DO UPDATE SET last_seen = excluded.last_seen",
+                (session_id, now),
+            )
+            connection.execute("DELETE FROM active_sessions WHERE last_seen < ?", (now - ACTIVE_SESSION_TTL_SECONDS,))
+            active_users = connection.execute("SELECT COUNT(*) FROM active_sessions").fetchone()[0]
+            visited_users = connection.execute("SELECT COUNT(*) FROM visitors").fetchone()[0]
+        return active_users, visited_users
+
+
+def remove_presence() -> None:
+    """Remove this session from the active-user count on logout."""
+    with _presence_lock:
+        if not PRESENCE_DB_PATH.exists():
+            return
+        with sqlite3.connect(PRESENCE_DB_PATH, timeout=5) as connection:
+            connection.execute("DELETE FROM active_sessions WHERE session_id = ?", (current_session_id(),))
+
+
+APP_USER, APP_PASSWORD = app_credentials()
 
 
 def value(name: str, fallback: str = "") -> str:
     return os.getenv(name, fallback)
+
+
+def require_login() -> None:
+    """Show the login screen and stop rendering until this browser session authenticates."""
+    if st.session_state.get("authenticated"):
+        return
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    _, login_column, _ = st.columns((1, 1.2, 1))
+    with login_column:
+        st.title("OCI Sandbox Lab")
+        st.caption("Sign in to access the tutorial workspace.")
+        with st.form("login_form"):
+            username = st.text_input("Username", autocomplete="username")
+            password = st.text_input("Password", type="password", autocomplete="current-password")
+            submitted = st.form_submit_button("Sign in", type="primary", use_container_width=True)
+
+        if submitted:
+            valid_username = hmac.compare_digest(username, APP_USER)
+            valid_password = hmac.compare_digest(password, APP_PASSWORD)
+            if valid_username and valid_password:
+                st.session_state.authenticated = True
+                st.rerun()
+            st.error("Invalid username or password.")
+
+    st.stop()
 
 
 def console_entry_type(event: str) -> tuple[str, str]:
@@ -60,12 +169,16 @@ def apply_oracle_theme() -> None:
         [data-testid="stSidebar"] { background: var(--navy); }
         [data-testid="stSidebar"] * { color: #f8f7f5 !important; }
         [data-testid="stSidebar"] input { color: #161513 !important; background: #fff !important; }
-        .hero { background: linear-gradient(110deg, #101827, #253552); border-left: 7px solid var(--oracle-red); color: #fff;
-                 padding: 2.3rem 2.6rem 2.1rem; margin: .3rem 0 1.7rem; }
+        .hero { align-items: center; background: linear-gradient(110deg, #101827, #253552); border-left: 7px solid var(--oracle-red); color: #fff;
+                 display: flex; gap: 2rem; justify-content: space-between; padding: 2.3rem 2.6rem 2.1rem; margin: .3rem 0 1.7rem; }
+        .hero-copy { max-width: 47rem; }
         .eyebrow { color: #f3695a; font-size: .78rem; font-weight: 700; letter-spacing: .13em;
                    text-transform: uppercase; margin-bottom: .6rem; }
         .hero h1 { font-size: 2.65rem; line-height: 1.06; margin: 0 0 .7rem; color: #fff; }
-        .hero p { color: #dedad5; font-size: 1.08rem; max-width: 47rem; margin: 0; }
+        .hero p { color: #dedad5; font-size: 1.08rem; margin: 0; }
+        .presence-panel { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.28); border-radius: 6px; min-width: 176px; padding: .85rem 1rem; }
+        .presence-title { color: #dedad5; font: 700 .66rem/1.3 Inter, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+        .presence-values { color: #fff; font: 700 1rem/1.65 Inter, sans-serif; white-space: nowrap; }
         .step-card { background: #fff; border: 1px solid var(--line); border-radius: 4px; border-top: 4px solid var(--oracle-red);
                      min-height: 154px; padding: 1.15rem 1.15rem .85rem; margin-bottom: 1.25rem; box-shadow: 0 2px 6px rgba(16,24,39,.05); }
         .step-number { color: var(--oracle-red); font-weight: 800; font-size: .8rem; letter-spacing: .1em; }
@@ -93,6 +206,8 @@ def apply_oracle_theme() -> None:
         .execution-entry.output { border-left-color: #5dbb8a; background: #101d20; }
         .execution-entry.activity { border-left-color: #6797d6; background: #111827; }
         .execution-label { color: #c8d5e8; display: block; font: 700 .7rem/1.3 Inter, sans-serif; letter-spacing: .08em; margin-bottom: .35rem; text-transform: uppercase; }
+        .st-key-logout button { font-size: 1.35rem; line-height: 1; min-height: 2.35rem; padding: .25rem .6rem; }
+        .app-footer { border-top: 1px solid var(--line); color: #596579; font: 600 .76rem/1.4 Inter, sans-serif; margin-top: 2rem; padding: 1rem 0; text-align: right; }
         .console-copy { background: #fff; border: 1px solid #b9c2d0; border-radius: 4px; color: #172033 !important; cursor: pointer; display: block;
                             font: 600 .88rem/1.2 Inter, sans-serif; padding: .55rem .65rem; text-align: center; text-decoration: none; }
         .console-copy:hover { border-color: var(--oracle-red); color: var(--oracle-red) !important; }
@@ -103,7 +218,9 @@ def apply_oracle_theme() -> None:
 
 
 def main() -> None:
+    require_login()
     apply_oracle_theme()
+    active_users, visited_users = record_presence()
 
     with st.sidebar:
         st.markdown("### OCI Sandbox Lab")
@@ -128,14 +245,27 @@ def main() -> None:
         )
         st.caption("Credentials stay in this browser session and are never saved by the app.")
 
+    _, logout_column = st.columns((11, 1))
+    with logout_column:
+        if st.button("⏻", key="logout", help="Log out", use_container_width=True):
+            remove_presence()
+            st.session_state.pop("authenticated", None)
+            st.rerun()
+
     st.markdown(
         """
         <section class="hero">
-          <div class="eyebrow">Oracle Cloud Infrastructure</div>
-          <h1>GenAI Sandbox Lab</h1>
-          <p>Build confidence with OCI sandbox concepts through short, hands-on tutorials—then validate that your project can reach an OCI-hosted model.</p>
+          <div class="hero-copy">
+            <div class="eyebrow">Oracle Cloud Infrastructure</div>
+            <h1>GenAI Sandbox Lab</h1>
+            <p>Build confidence with OCI sandbox concepts through short, hands-on tutorials—then validate that your project can reach an OCI-hosted model.</p>
+          </div>
+          <aside class="presence-panel" aria-label="Visitor activity">
+            <div class="presence-title">Visitor activity</div>
+            <div class="presence-values">👥 {active_users} online<br>👀 {visited_users} visited</div>
+          </aside>
         </section>
-        """,
+        """.format(active_users=active_users, visited_users=visited_users),
         unsafe_allow_html=True,
     )
 
@@ -795,6 +925,11 @@ PY''',
             "- [OpenAI Agents SDK: orchestration patterns](https://openai.github.io/openai-agents-python/multi_agent/)\n"
             "- [Oracle GenAI Sandboxes User Guide (internal)](https://confluence.oraclecorp.com/confluence/pages/viewpage.action?pageId=20677439262)"
         )
+
+    st.markdown(
+        f'<footer class="app-footer">Last deployed / app started: {APP_STARTED_AT_UTC}</footer>',
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":
