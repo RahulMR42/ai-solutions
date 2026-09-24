@@ -1,6 +1,12 @@
 # AI Solutions
 
-A collection of practical Oracle AI and OCI examples: deployable applications, infrastructure projects, and hands-on workshops. Each sample has its own documentation, prerequisites, and setup instructions.
+Welcome to the AI Solutions repository, a collection of deployable apps, workshops and tools built with Oracle technologies, some of them featured in [oracle.ai](https://oracle.ai). This repository contains practical implementations, demos, and guides for various AI use cases.
+
+## Repository Structure
+
+- `apps/`: Deployable applications, automation scripts, and infrastructure-as-code projects.
+- `workshops/`: Step-by-step guides, LiveLabs content, and educational materials.
+- `notebooks/`: Reserved for notebook-driven explorations and tutorials (currently minimal).
 
 ## Samples
 
@@ -49,6 +55,10 @@ A collection of practical Oracle AI and OCI examples: deployable applications, i
 
 - [Oracle AI Database](https://www.oracle.com/database/ai-native-database-26ai/)
 - [Oracle Cloud Infrastructure](https://www.oracle.com/cloud/)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see individual solution directories for contribution guidelines.
 
 ## License
 
