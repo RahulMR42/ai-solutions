@@ -8,9 +8,27 @@ Welcome to the AI Solutions repository, a collection of deployable apps, worksho
 - `workshops/`: Step-by-step guides, LiveLabs content, and educational materials.
 - `notebooks/`: Reserved for notebook-driven explorations and tutorials (currently minimal).
 
-## 🚀 New AI Solutions (2024)
+## 🚀 New AI Solutions (2026)
 
-### 1. [Oracle MCP AI Agents](./apps/oracle-mcp-ai-agents/)
+### 1. [OCI GenAI Sandbox Lab](./apps/oci-sandbox-demo/)
+**Interactive Lab for OCI Generative AI Sandboxes and the OpenAI-Compatible Responses API**
+
+- **Sandbox Tutorials**: Executable tutorials for OCI Generative AI Sandboxes
+- **OpenAI-Compatible API**: Build with OCI's OpenAI-compatible Responses API
+- **Live Execution**: View API calls, commands, output, and sandbox lifecycle events
+- **Agent Workflows**: Examples for OpenAI Agents SDK and LangGraph workflows
+- **Use Cases**: Secure experimentation, agent development, web research, and model evaluation
+
+### 2. [MCP Audio on OKE](./apps/oracle-mcp-oke/)
+**Deploy an MCP Audio Server and Client on Oracle Kubernetes Engine (OKE)**
+
+- **MCP Audio Server**: Audio transcription and text-analysis workflows exposed through MCP
+- **OKE Deployment**: Deploy server and Gradio client applications on Oracle Kubernetes Engine
+- **Terraform Automation**: Provision networking, OKE, OCIR repositories, and storage resources
+- **OCIR Integration**: Build and publish container images to Oracle Cloud Infrastructure Registry
+- **Use Cases**: Audio transcription, sentiment analysis, and MCP-enabled AI applications
+
+### 3. [Oracle MCP AI Agents](./apps/oracle-mcp-ai-agents/)
 **Building AI Agents with Model Context Protocol (MCP) and Oracle AI Database**
 
 - **MCP Integration**: Secure tool calling between LLMs and Oracle Database
@@ -19,7 +37,7 @@ Welcome to the AI Solutions repository, a collection of deployable apps, worksho
 - **Langflow Integration**: Visual workflow builder for AI agents
 - **Use Cases**: Financial advisor, customer service, business intelligence
 
-### 2. [Oracle Select AI Insights](./apps/oracle-select-ai-insights/)
+### 4. [Oracle Select AI Insights](./apps/oracle-select-ai-insights/)
 **Talk with Industry-Specific Domain Data and Gain Insights Using Select AI**
 
 - **Natural Language Queries**: Ask questions in plain English
@@ -32,26 +50,29 @@ Welcome to the AI Solutions repository, a collection of deployable apps, worksho
 
 ### AI & Machine Learning
 - [Agentic RAG](./apps/agentic_rag/) - AI RAG in a BOX Demo using Oracle AI Database and Local LLMs
-- [PlaneLLM](./apps/planeLLM/) - PlaneLLM integration with Oracle Database
+- [PlaneLLM](./apps/planeLLM/) - Generate bite-sized educational podcasts using OCI Generative AI
+- [LangGraph Agent with GenAI](./apps/langgraph_agent_with_genai/) - File indexing and conversational search using LangGraph and Oracle Generative AI
 - [Neural Networks Hero](./workshops/neural_networks_hero/) - Neural network implementations and tutorials
 
 ### Computer Vision
-- [OCI Vision AI](./oci-vision-ai/) - Computer vision solutions using Oracle Cloud Infrastructure
+- [OCI Vision AI](./apps/OJET%20(VDOM)%20-%20OCI%20Vision/) - Oracle JET application with OCI Vision integration for image analysis
 - [Mask Detection](./workshops/mask_detection_training/) - Training and labeling for mask detection models
 
 ### Language & Translation
 - [OCI Language Translation](./apps/oci-language-translation/) - Multi-language translation services
 - [OCI Subtitle Translation](./apps/oci-subtitle-translation/) - Automated subtitle translation
 - [OCI CSV-JSON Translation](./apps/oci-csv-json-translation/) - Data format conversion tools
+- [OCI Language Multiple Translation](./apps/oci-language-multiple-translation/) - Bulk document translation using OCI Language
 
 ### DevOps & OKE
 - [NVIDIA NIM on OKE](./apps/nvidia-nim-oke/) - NVIDIA Inference Microservices on Oracle Container Engine
 - [Holoscan](./apps/holoscan/) - Holoscan applications and deployments
-- [Kubeflow on OKE](./kubeflow-oke-old/) - Machine learning workflows on Kubernetes
+- [MCP Audio on OKE](./apps/oracle-mcp-oke/) - MCP audio server and client deployment on Oracle Kubernetes Engine
 
 ### Data & Analytics
 - [Data in AI Revolution](./workshops/data-in-ai-revolution/) - Data-driven AI solutions and insights
 - [RAG in a Box](./apps/rag_in_a_box/) - Retrieval-Augmented Generation solutions
+- [Oracle Select AI Insights](./apps/oracle-select-ai-insights/) - Natural language insights for industry-specific domain data
 
 ## 📁 Directory Contents
 
@@ -66,10 +87,11 @@ Welcome to the AI Solutions repository, a collection of deployable apps, worksho
 - **[oci-csv-json-translation](./apps/oci-csv-json-translation/)** - Translate specific columns in CSV files or keys in JSON documents using OCI Language
 - **[oci-language-multiple-translation](./apps/oci-language-multiple-translation/)** - Bulk translation of multiple documents from OCI Object Storage buckets
 - **[oci-language-translation](./apps/oci-language-translation/)** - Multi-language translation services for documents and text using OCI Language
+- **[oci-sandbox-demo](./apps/oci-sandbox-demo/)** - Interactive Streamlit lab for OCI Generative AI Sandboxes and the OpenAI-compatible Responses API
 - **[oci-subtitle-translation](./apps/oci-subtitle-translation/)** - Transcribe audio files and translate subtitles using OCI Speech and Language services
 - **[OJET (VDOM) - OCI Vision](./apps/OJET%20(VDOM)%20-%20OCI%20Vision/)** - Oracle JET Virtual DOM application with OCI Vision integration for image analysis
 - **[oracle-mcp-ai-agents](./apps/oracle-mcp-ai-agents/)** - Building AI agents with Model Context Protocol (MCP) and Oracle AI Database
-- **[oracle-rag-applications](./apps/oracle-rag-applications/)** - Building RAG applications with Oracle AI Database for document processing and semantic search
+- **[oracle-mcp-oke](./apps/oracle-mcp-oke/)** - Deploy MCP audio server and Gradio client applications on Oracle Kubernetes Engine
 - **[oracle-select-ai-insights](./apps/oracle-select-ai-insights/)** - Natural language queries for industry-specific domain data using Oracle Select AI
 - **[planeLLM](./apps/planeLLM/)** - Generate bite-sized educational podcasts on any topic using OCI GenAI service
 - **[rag_in_a_box](./apps/rag_in_a_box/)** - Containerized RAG system with Oracle AI Database and local LLMs deployable via Podman
@@ -114,4 +136,4 @@ See [LICENSE](./LICENSE) for more details.
 
 ---
 
-*Built with ❤️ by the Oracle DevRel team* 
+*Built with ❤️ by the Oracle DevRel team*
