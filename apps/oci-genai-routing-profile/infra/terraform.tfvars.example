@@ -1,0 +1,9 @@
+compartment_id  = "ocid1.compartment.oc1..replace-me"
+tenancy_id      = "ocid1.tenancy.oc1..replace-me"
+# Set when granting access to an existing routing profile in another compartment.
+policy_compartment_id = "ocid1.compartment.oc1..replace-me"
+display_name    = "gpt-oss-approved-regions"
+model_id        = "openai.gpt-oss-120b"
+# Choose only regions where this model is offered, in the same OCI realm.
+target_regions  = ["us-chicago-1"]
+oci_cli_profile = "DEFAULT"
