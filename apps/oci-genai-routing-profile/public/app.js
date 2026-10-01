@@ -6,9 +6,14 @@ let activeRunId = null;
 
 const esc = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const activeProfile = () => $('#profile').value.trim() || config.routingProfileId || '<ROUTING_PROFILE_OCID>';
+const activeRegion = () => {
+  const profile = activeProfile();
+  const region = profile.startsWith('ocid1.generativeairoutingprofile.') ? profile.split('.')[3] : '';
+  return config.regionAliases?.[region] || region || config.defaultRegion || config.region || 'us-chicago-1';
+};
 
 function sdkSnippet() {
-  const region = config.region || 'us-chicago-1';
+  const region = activeRegion();
   const prompt = $('#prompt').value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\n');
   const baseUrl = `https://inference.generativeai.${region}.oci.oraclecloud.com/20231130/actions/v1`;
   const profile = activeProfile();
@@ -82,6 +87,7 @@ config = oci.config.from_file(
     ),
     profile_name=os.getenv("OCI_CLI_PROFILE", "DEFAULT"),
 )
+config["region"] = "${region}"
 client = oci.generative_ai_inference.GenerativeAiInferenceClient(config)
 
 response = client.chat(
@@ -131,15 +137,21 @@ async function request(path, body) {
 }
 
 async function loadProfile() {
+  const profileId = activeProfile();
+  profileEvidence = null;
   $('#profile-state').textContent = 'Loading…';
   try {
-    profileEvidence = await fetch(`/api/profile?profileId=${encodeURIComponent(activeProfile())}`).then(async response => {
+    const evidence = await fetch(`/api/profile?profileId=${encodeURIComponent(profileId)}`).then(async response => {
       const data = await response.json(); if (!response.ok) throw new Error(data.error); return data;
     });
+    if (activeProfile() !== profileId) return;
+    profileEvidence = evidence;
+    sdkSnippet();
     $('#profile-state').textContent = profileEvidence.state;
     $('#profile-state').className = `pill ${profileEvidence.state === 'ACTIVE' ? 'good' : ''}`;
-    $('#profile-details').innerHTML = `<div class="evidence-row"><span>Approved model</span><code>${esc(profileEvidence.allowedModels.join(', '))}</code></div><div class="evidence-row"><span>Allowed regions</span><div>${profileEvidence.allowedRegions.map(region => `<span class="region-tag">${esc(region)}</span>`).join('')}</div></div><div class="evidence-row"><span>Profile scope</span><code>${esc(profileEvidence.compartmentId)}</code></div>`;
+    $('#profile-details').innerHTML = `<div class="evidence-row"><span>Inference endpoint region</span><code>${esc(profileEvidence.inferenceRegion)}</code></div><div class="evidence-row"><span>Approved model</span><code>${esc(profileEvidence.allowedModels.join(', '))}</code></div><div class="evidence-row"><span>Allowed regions</span><div>${profileEvidence.allowedRegions.map(region => `<span class="region-tag">${esc(region)}</span>`).join('')}</div></div><div class="evidence-row"><span>Profile scope</span><code>${esc(profileEvidence.compartmentId)}</code></div>`;
   } catch (error) {
+    if (activeProfile() !== profileId) return;
     $('#profile-state').textContent = 'Unavailable'; $('#profile-state').className = 'pill bad';
     $('#profile-details').textContent = error.message;
   }
@@ -149,11 +161,21 @@ async function refreshLogs() {
   const data = await fetch('/api/logs').then(response => response.json());
   $('#loglines').innerHTML = data.length ? data.map(item => {
     const summary = `<time>${new Date(item.at).toLocaleTimeString()}</time><strong class="${item.level}">${item.level.toUpperCase()}</strong> ${esc(item.message)}${item.selectedRegion ? ` · <span class="region-text">${esc(item.selectedRegion)}</span>` : ''}${item.elapsedMs ? ` · ${item.elapsedMs} ms` : ''}`;
-    if (!item.responseText) return `<p class="log-line">${summary}</p>`;
-    const metadata = Object.entries(item.ociMetadata || {}).map(([key, value]) => `<div><span>${esc(key)}</span><code>${esc(value)}</code></div>`).join('');
-    return `<details class="log-entry"><summary>${summary}<span class="expand">View output</span></summary><div class="log-output"><div class="log-metadata">${metadata}<div><span>Response ID</span><code>${esc(item.responseId)}</code></div></div><pre>${esc(item.responseText)}</pre></div></details>`;
+    if (!item.trace) return `<p class="log-line">${summary}</p>`;
+    const section = (heading, value) => `<h3>${heading}</h3><pre>${esc(JSON.stringify(value, null, 2))}</pre>`;
+    return `<div class="log-entry"><div class="log-line">${summary}<a href="#" class="log-view" aria-expanded="false">View</a></div><div class="log-output" hidden>${section('Input', item.trace.input)}${section('Output', item.trace.output)}${section('HTTP attempts and headers', item.trace.attempts)}${section('Retry details', item.trace.retryDetails)}</div></div>`;
   }).join('') : 'No activity yet.';
 }
+
+$('#loglines').addEventListener('click', event => {
+  const link = event.target.closest('.log-view');
+  if (!link) return;
+  event.preventDefault();
+  const output = link.closest('.log-entry').querySelector('.log-output');
+  output.hidden = !output.hidden;
+  link.textContent = output.hidden ? 'View' : 'Hide';
+  link.setAttribute('aria-expanded', String(!output.hidden));
+});
 
 function setBusy(button, busy, label) { button.disabled = busy; if (busy) button.dataset.label = button.textContent; button.textContent = busy ? label : button.dataset.label; }
 
@@ -198,10 +220,11 @@ async function runExperiment() {
 async function init() {
   config = await fetch('/api/config').then(response => response.json());
   $('#status').textContent = config.configured ? 'Server credential ready' : 'Configure environment'; $('#status').classList.toggle('ready', config.configured);
-  $('#profile').value = config.routingProfileId || ''; sdkSnippet(); loadProfile();
+  $('#profile').value = config.routingProfileId || '';
+  sdkSnippet(); loadProfile();
 }
 
-$('#profile').addEventListener('input', sdkSnippet);
+$('#profile').addEventListener('input', () => { profileEvidence = null; sdkSnippet(); });
 $('#edit-profile').onclick = () => { const input = $('#profile'); const editing = input.hasAttribute('readonly'); input.toggleAttribute('readonly', !editing); $('#edit-profile').textContent = editing ? '✓' : '✎'; $('#edit-profile').title = editing ? 'Apply routing profile' : 'Edit routing profile'; if (editing) input.focus(); else loadProfile(); sdkSnippet(); };
 $('#prompt').addEventListener('input', sdkSnippet);
 $('#copy').onclick = () => navigator.clipboard.writeText($('#sdk').textContent);

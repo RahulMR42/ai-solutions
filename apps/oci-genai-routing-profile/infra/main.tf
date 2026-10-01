@@ -29,13 +29,13 @@ variable "model_id" {
 
 variable "target_regions" {
   type        = list(string)
-  description = "OCI regions in the same realm where model_id is available."
+  description = "Allowed serving regions in the same realm where model_id is available; separate from the profile's creation region."
 }
 
 variable "oci_cli_profile" {
   type        = string
   default     = "DEFAULT"
-  description = "Named profile in ~/.oci/config used by the OCI Terraform provider."
+  description = "Named profile in ~/.oci/config used by the OCI Terraform provider; its region determines the routing profile's creation region."
 }
 
 variable "tenancy_id" {
@@ -107,7 +107,7 @@ resource "oci_identity_policy" "genai_api_key_access" {
 }
 
 output "routing_profile_id" {
-  description = "Use this OCID as the OpenAI Responses model value."
+  description = "Set OCI_ROUTING_PROFILE_ID to this OCID. The app uses it as the model identifier and derives the inference endpoint region from it."
   value       = oci_generative_ai_routing_profile.demo.id
 }
 
